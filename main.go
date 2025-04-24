@@ -13,9 +13,9 @@ import (
 func main() {
 	cmd := &cli.Command{
 		Name:      "brack",
-		Version:   "0.0.1",
+		Version:   "0.0.3",
 		Usage:     "Play Bracket City on the command line.",
-		ArgsUsage: "[ DATE ]",
+		ArgsUsage: "[DATE]",
 		Description: `Play Bracket City, by the Atlantic.
 
 Bracket City is a daily puzzle game published by The Atlantic.
