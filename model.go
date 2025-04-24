@@ -23,6 +23,7 @@ var activeStyle = lipgloss.NewStyle().
 	Background(lipgloss.Color("#e8c566"))
 
 type model struct {
+	done      bool
 	correct   int
 	incorrect int
 	chars     int
@@ -72,6 +73,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				// Replace the question with the correct answer
 				m.state = strings.Replace(m.state, "["+q+"]", a, 1)
+
+				// Done?
+				if m.correct == len(m.data.Solutions) {
+					m.done = true
+					return m, tea.Quit
+				}
 
 				// Good.
 				return m, nil
@@ -124,6 +131,20 @@ func (m model) View() string {
 		m.incorrect,
 		m.chars,
 	)
+
+	if m.done {
+		return lipgloss.JoinVertical(lipgloss.Left,
+			headerStyle.Render(
+				"[ Bracket City | "+m.data.PuzzleDate+" ]",
+			),
+			score,
+			"---",
+			bodyStyle.Render(s),
+			"---",
+			"🎉 You win! 🎉",
+			"URL: "+m.data.CompletionURL,
+		)
+	}
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		headerStyle.Render(

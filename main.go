@@ -18,12 +18,16 @@ func main() {
 		ArgsUsage: "[ DATE ]",
 		Description: `Play Bracket City, by the Atlantic.
 
+Bracket City is a daily puzzle game published by The Atlantic.
+
 DATE is an optional argument that specifies the date of the puzzle to play.
 If no date is provided, the current date will be used.
 
 Example:
 
 $ bracket-city 2024-01-01
+
+Bracket City: https://theatlantic.com/games/bracket-city
 		`,
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			// Is there a date argument?
