@@ -12,7 +12,7 @@ import (
 
 func main() {
 	cmd := &cli.Command{
-		Name:      "bracket-city",
+		Name:      "brack",
 		Version:   "0.0.1",
 		Usage:     "Play Bracket City on the command line.",
 		ArgsUsage: "[ DATE ]",
@@ -23,9 +23,13 @@ Bracket City is a daily puzzle game published by The Atlantic.
 DATE is an optional argument that specifies the date of the puzzle to play.
 If no date is provided, the current date will be used.
 
-Example:
+Examples:
 
-$ bracket-city 2024-01-01
+$ # Play the current day's puzzle
+$ brack
+
+$ # Play the puzzle for January 2, 2024
+$ brack 2024-01-02
 
 Bracket City: https://theatlantic.com/games/bracket-city
 		`,
