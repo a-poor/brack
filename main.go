@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -31,6 +32,9 @@ $ brack
 $ # Play the puzzle for January 2, 2024
 $ brack 2024-01-02
 
+$ # Play the puzzle for the previous day
+$ brack -1
+
 Bracket City: https://theatlantic.com/games/bracket-city
 		`,
 		Action: func(ctx context.Context, cmd *cli.Command) error {
@@ -48,7 +52,7 @@ Bracket City: https://theatlantic.com/games/bracket-city
 
 			// Run the puzzle
 			m := newModel(puzzle)
-			p := tea.NewProgram(m)
+			p := tea.NewProgram(m, tea.WithAltScreen())
 			if _, err := p.Run(); err != nil {
 				return err
 			}
@@ -66,8 +70,16 @@ Bracket City: https://theatlantic.com/games/bracket-city
 }
 
 func parseDateArg(s string) (time.Time, error) {
+	// If no date is provided, use the current date
 	if s == "" {
 		return time.Now(), nil
 	}
+
+	// Try to parse it as a negative number
+	if n, err := strconv.Atoi(s); err == nil && n < 0 {
+		return time.Now().AddDate(0, 0, n), nil
+	}
+
+	// Parse the date
 	return time.Parse("2006-01-02", s)
 }

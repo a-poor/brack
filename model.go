@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"unicode"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -30,6 +31,7 @@ type model struct {
 	state     string
 	data      puzzledata
 	txtin     textinput.Model
+	w, h      int
 }
 
 func newModel(d puzzledata) model {
@@ -48,6 +50,9 @@ func (m model) Init() tea.Cmd {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.w, m.h = msg.Width, msg.Height
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c":
@@ -89,7 +94,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 
 		default:
-			m.chars++
+			if txt := msg.String(); len(txt) == 1 && unicode.IsLetter(rune(txt[0])) {
+				m.chars++
+			}
 			tin, cmd := m.txtin.Update(msg)
 			m.txtin = tin
 			return m, cmd
@@ -139,7 +146,7 @@ func (m model) View() string {
 			),
 			score,
 			"---",
-			bodyStyle.Render(s),
+			bodyStyle.Width(min(m.w, 100)).Render(s),
 			"---",
 			"🎉 You win! 🎉",
 			"URL: "+m.data.CompletionURL,
@@ -154,7 +161,7 @@ func (m model) View() string {
 		),
 		score,
 		"---",
-		bodyStyle.Render(s),
+		bodyStyle.Width(min(m.w, 100)).Render(s),
 		"---",
 		m.txtin.View(),
 	)
