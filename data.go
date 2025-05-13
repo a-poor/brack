@@ -42,3 +42,25 @@ func getActiveQuestions(pd puzzledata, s string) map[string]string {
 	}
 	return qs
 }
+
+// ModelToGameState converts a model to a GameState
+func modelToGameState(m model) GameState {
+	return GameState{
+		PuzzleDate: m.data.PuzzleDate,
+		State:      m.state,
+		Correct:    m.correct,
+		Incorrect:  m.incorrect,
+		Chars:      m.chars,
+		LastPlayed: time.Now(),
+		Completed:  m.done,
+	}
+}
+
+// ApplyGameState applies a GameState to a model
+func applyGameState(m *model, gs GameState) {
+	m.state = gs.State
+	m.correct = gs.Correct
+	m.incorrect = gs.Incorrect
+	m.chars = gs.Chars
+	m.done = gs.Completed
+}

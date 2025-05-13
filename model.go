@@ -32,16 +32,30 @@ type model struct {
 	data      puzzledata
 	txtin     textinput.Model
 	w, h      int
+	storage   *StorageClient
 }
 
-func newModel(d puzzledata) model {
+func newModel(d puzzledata, storage *StorageClient) model {
 	tin := textinput.New()
 	tin.Focus()
-	return model{
-		data:  d,
-		txtin: tin,
-		state: d.InitialPuzzle,
+	
+	m := model{
+		data:    d,
+		txtin:   tin,
+		state:   d.InitialPuzzle,
+		storage: storage,
 	}
+	
+	// Try to load existing game state
+	if storage != nil {
+		gameState, err := storage.GetGameState(d.PuzzleDate)
+		if err == nil {
+			// Found existing state, restore it
+			applyGameState(&m, gameState)
+		}
+	}
+	
+	return m
 }
 
 func (m model) Init() tea.Cmd {
@@ -79,6 +93,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Replace the question with the correct answer
 				m.state = strings.Replace(m.state, "["+q+"]", a, 1)
 
+				// Save game state
+				if m.storage != nil {
+					gameState := modelToGameState(m)
+					gameState.Completed = m.correct == len(m.data.Solutions)
+					_ = m.storage.SaveGameState(gameState)
+				}
+
 				// Done?
 				if m.correct == len(m.data.Solutions) {
 					m.done = true
@@ -91,11 +112,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// If we got here, the answer is incorrect
 			m.incorrect++
+			
+			// Save game state
+			if m.storage != nil {
+				gameState := modelToGameState(m)
+				gameState.Completed = false
+				_ = m.storage.SaveGameState(gameState)
+			}
+			
 			return m, nil
 
 		default:
 			if txt := msg.String(); len(txt) == 1 && unicode.IsLetter(rune(txt[0])) {
 				m.chars++
+				
+				// Update character count in game state
+				if m.storage != nil {
+					gameState := modelToGameState(m)
+					_ = m.storage.SaveGameState(gameState)
+				}
 			}
 			tin, cmd := m.txtin.Update(msg)
 			m.txtin = tin

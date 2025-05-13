@@ -12,6 +12,14 @@ import (
 )
 
 func main() {
+	// Initialize storage client
+	storage, err := NewStorageClient()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to initialize storage: %s\n", err)
+		os.Exit(1)
+	}
+	defer storage.Close()
+
 	cmd := &cli.Command{
 		Name:      "brack",
 		Version:   "0.0.3",
@@ -44,14 +52,32 @@ Bracket City: https://theatlantic.com/games/bracket-city
 				return err
 			}
 
-			// Fetch the puzzle data
-			puzzle, err := getPuzzleData(d)
-			if err != nil {
-				return err
+			// Try to load puzzle data from local storage first
+			puzzleDate := d.Format("2006-01-02")
+			hasPuzzle, _ := storage.HasPuzzleData(puzzleDate)
+			
+			var puzzle puzzledata
+			if hasPuzzle {
+				// Load from storage
+				puzzle, err = storage.GetPuzzleData(puzzleDate)
+				if err != nil {
+					return fmt.Errorf("failed to load puzzle from storage: %w", err)
+				}
+			} else {
+				// Fetch from API
+				puzzle, err = getPuzzleData(d)
+				if err != nil {
+					return err
+				}
+				
+				// Save to storage
+				if err := storage.SavePuzzleData(puzzle); err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: Failed to save puzzle data: %s\n", err)
+				}
 			}
 
 			// Run the puzzle
-			m := newModel(puzzle)
+			m := newModel(puzzle, storage)
 			p := tea.NewProgram(m, tea.WithAltScreen())
 			if _, err := p.Run(); err != nil {
 				return err
