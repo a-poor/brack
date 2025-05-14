@@ -11,7 +11,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-var _ tea.Model = model{}
+var _ tea.Model = (*model)(nil)
 
 var headerStyle = lipgloss.NewStyle().
 	Bold(true)
@@ -103,7 +103,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Done?
 				if m.correct == len(m.data.Solutions) {
 					m.done = true
-					return m, tea.Quit
+					return m, nil
 				}
 
 				// Good.
@@ -174,8 +174,9 @@ func (m model) View() string {
 		m.chars,
 	)
 
+	var view string
 	if m.done {
-		return lipgloss.JoinVertical(lipgloss.Left,
+		view = lipgloss.JoinVertical(lipgloss.Left,
 			headerStyle.Render(
 				"[ Bracket City | "+m.data.PuzzleDate+" ]",
 			),
@@ -186,18 +187,20 @@ func (m model) View() string {
 			"🎉 You win! 🎉",
 			"URL: "+m.data.CompletionURL,
 		)
+	} else {
+		view = lipgloss.JoinVertical(lipgloss.Left,
+			headerStyle.Render(
+				"[ Bracket City | "+
+					m.data.PuzzleDate+
+					" ]",
+			),
+			score,
+			"---",
+			bodyStyle.Width(min(m.w, 100)).Render(s),
+			"---",
+			m.txtin.View(),
+		)
 	}
-
-	return lipgloss.JoinVertical(lipgloss.Left,
-		headerStyle.Render(
-			"[ Bracket City | "+
-				m.data.PuzzleDate+
-				" ]",
-		),
-		score,
-		"---",
-		bodyStyle.Width(min(m.w, 100)).Render(s),
-		"---",
-		m.txtin.View(),
-	)
+	
+	return view
 }

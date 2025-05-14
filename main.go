@@ -11,6 +11,12 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
+// View modes
+const (
+	ModeGame     = "game"
+	ModeCalendar = "calendar"
+)
+
 func main() {
 	// Initialize storage client
 	storage, err := NewStorageClient()
@@ -19,6 +25,9 @@ func main() {
 		os.Exit(1)
 	}
 	defer storage.Close()
+
+	// Initialize calendar
+	calendar := NewCalendar(storage)
 
 	cmd := &cli.Command{
 		Name:      "brack",
@@ -43,9 +52,28 @@ $ brack 2024-01-02
 $ # Play the puzzle for the previous day
 $ brack -1
 
+$ # Open the calendar view
+$ brack --calendar
+
 Bracket City: https://theatlantic.com/games/bracket-city
 		`,
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:    "calendar",
+				Aliases: []string{"c"},
+				Usage:   "Open the calendar view",
+			},
+		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
+			// Check if calendar view is requested
+			showCalendar := cmd.Bool("calendar")
+			
+			// Initial view mode
+			viewMode := ModeGame
+			if showCalendar {
+				viewMode = ModeCalendar
+			}
+			
 			// Is there a date argument?
 			d, err := parseDateArg(cmd.Args().Get(0))
 			if err != nil {
@@ -76,9 +104,16 @@ Bracket City: https://theatlantic.com/games/bracket-city
 				}
 			}
 
-			// Run the puzzle
-			m := newModel(puzzle, storage)
-			p := tea.NewProgram(m, tea.WithAltScreen())
+			// Create initial application model
+			appModel := &AppModel{
+				mode:     viewMode,
+				model:    newModel(puzzle, storage),
+				calendar: calendar,
+				storage:  storage,
+			}
+			
+			// Run the program
+			p := tea.NewProgram(appModel, tea.WithAltScreen())
 			if _, err := p.Run(); err != nil {
 				return err
 			}
@@ -108,4 +143,101 @@ func parseDateArg(s string) (time.Time, error) {
 
 	// Parse the date
 	return time.Parse("2006-01-02", s)
+}
+
+// AppModel is the top-level application model that manages different views
+type AppModel struct {
+	mode     string         // current view mode
+	model    model          // game model
+	calendar *Calendar      // calendar model
+	storage  *StorageClient // storage client
+}
+
+// Init initializes the application
+func (a AppModel) Init() tea.Cmd {
+	return nil
+}
+
+// Update handles messages for the application
+func (a AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		// Global key handlers
+		switch msg.String() {
+		case "ctrl+c", "q":
+			return a, tea.Quit
+		case "tab", "c":
+			// Toggle between game and calendar view
+			if a.mode == ModeGame {
+				a.mode = ModeCalendar
+			} else {
+				a.mode = ModeGame
+			}
+			return a, nil
+		}
+
+		if a.mode == ModeCalendar {
+			// Handle calendar-specific updates
+			calendar, cmd := a.calendar.Update(msg)
+			a.calendar = calendar
+			
+			// If enter was pressed in calendar view, switch to game view with selected date
+			if msg.String() == "enter" || msg.String() == " " {
+				selectedDate := a.calendar.SelectedDate()
+				dateStr := selectedDate.Format("2006-01-02")
+				
+				// Try to load the puzzle for the selected date
+				hasPuzzle, _ := a.storage.HasPuzzleData(dateStr)
+				var puzzle puzzledata
+				
+				if hasPuzzle {
+					puzzle, _ = a.storage.GetPuzzleData(dateStr)
+				} else {
+					// Fetch from API
+					puzzle, _ = getPuzzleData(selectedDate)
+					// Save to storage
+					_ = a.storage.SavePuzzleData(puzzle)
+				}
+				
+				// Create a new model for the selected date
+				a.model = newModel(puzzle, a.storage)
+				a.mode = ModeGame
+			}
+			
+			return a, cmd
+		} else {
+			// Forward messages to the game model
+			newModel, cmd := a.model.Update(msg)
+			updatedModel, ok := newModel.(model)
+			if ok {
+				a.model = updatedModel
+			}
+			return a, cmd
+		}
+		
+	case tea.WindowSizeMsg:
+		// Forward window size messages to both models
+		newModel, _ := a.model.Update(msg)
+		updatedModel, ok := newModel.(model)
+		if ok {
+			a.model = updatedModel
+		}
+		
+		calendar, _ := a.calendar.Update(msg)
+		a.calendar = calendar
+	}
+	
+	return a, nil
+}
+
+// View renders the current view
+func (a AppModel) View() string {
+	// Instructions for switching between views
+	instructions := "\nPress 'tab' to toggle between game and calendar view"
+	
+	if a.mode == ModeCalendar {
+		return a.calendar.View() + instructions
+	} else {
+		return a.model.View() + instructions
+	}
 }
